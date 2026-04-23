@@ -1,0 +1,10 @@
+# Ignore Icarus Verilog compiled binaries
+*.vvp
+*.out
+
+# Ignore GTKWave waveform dumps
+*.vcd
+*.fst
+
+# Ignore OS files
+.DS_Store
