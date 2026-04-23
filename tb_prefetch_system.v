@@ -2,21 +2,21 @@
 
 module tb_prefetch_system;
 
-    // ── params ────────────────────────────────────────────────────────────
+    // params
     localparam AW = 32, DW = 32, FW = 64;
     localparam HALF = 5;   // 10ns clock
 
-    // a few instructions we'll use in the test
+    // a few instructions used in the test
     localparam NOP    = 32'hE1A0_0000;   // MOV R0,R0  @ 0x00
     localparam BRANCH = 32'hEA00_0002;   // B +2  → target 0x14  @ 0x04
     localparam TARGET = 32'hE3A0_1001;   // MOV R1,#1  @ 0x14
     localparam MISS_I = 32'hE3A0_0001;   // MOV R0,#1  @ 0x08
 
-    // ── clock / reset ─────────────────────────────────────────────────────
+    // clock and reset
     reg clk = 0, rst_n = 0;
     always #HALF clk = ~clk;
 
-    // ── wires between modules ─────────────────────────────────────────────
+    // wires between modules
     wire            pd_is_branch, pd_valid;
     wire [AW-1:0]   pd_target;
 
@@ -40,7 +40,7 @@ module tb_prefetch_system;
     wire [AW-1:0]   mem_araddr;
     wire            mem_arvalid, mem_rready;
 
-    // ── TB-driven registers ───────────────────────────────────────────────
+    // testbench-driven registers
     reg [AW-1:0] cpu_araddr;
     reg          cpu_arvalid, cpu_rready;
 
@@ -54,7 +54,7 @@ module tb_prefetch_system;
     reg [1:0]    mem_rresp;
     reg          fifo_flush;
 
-    // latch the fetch address while arvalid is held (addr is stable for whole txn)
+    // latch fetch address while arvalid is held (address is stable for whole transaction)
     reg [AW-1:0] fetch_addr_q;
     always @(posedge clk or negedge rst_n)
         if (!rst_n) fetch_addr_q <= 0;
@@ -66,8 +66,8 @@ module tb_prefetch_system;
         pd_pc_in    = fetch_addr_q;
     end
 
-    // sticky latches — predecoder outputs only stay high 1 cycle, so we
-    // capture them here and check the latched version in the tests
+    // sticky latches: predecoder outputs stay high for one cycle,
+    // so capture them here and check latched values in the tests
     reg          pd_branch_seen;
     reg [AW-1:0] pd_target_seen;
     always @(posedge clk or negedge rst_n) begin
@@ -80,11 +80,11 @@ module tb_prefetch_system;
         end
     end
 
-    // sticky flag: stays high if mem_arvalid ever pulses
+    // sticky flag that stays high if mem_arvalid ever pulses
     reg mem_seen;
     always @(posedge clk) if (mem_arvalid) mem_seen = 1;
 
-    // ── DUT instantiations ────────────────────────────────────────────────
+    // dut instantiations
     arm_branch_predecoder #(.D_W(DW),.P_W(AW)) u_pd (
         .clk(clk), .rst_n(rst_n),
         .vld_in(pd_valid_in), .inst(pd_inst_in), .pc_in(pd_pc_in),
@@ -119,17 +119,17 @@ module tb_prefetch_system;
         .f_empty(fifo_empty), .f_dout(fifo_rdata), .f_pop(fifo_ren)
     );
 
-    // ── mock memory (AXI slave, 64 words) ────────────────────────────────
+    // mock memory (axi slave, 64 words)
     reg [DW-1:0] ram [0:63];
     integer i;
     initial begin
         for (i = 0; i < 64; i = i+1) ram[i] = NOP;
         ram[0]  = 32'hE3A0_0000;   // 0x00
-        ram[1]  = BRANCH;          // 0x04 ← branch to 0x14
+        ram[1]  = BRANCH;          // 0x04 branch to 0x14
         ram[2]  = MISS_I;          // 0x08
         ram[3]  = 32'hE3A0_0002;   // 0x0C
         ram[4]  = 32'hE3A0_0003;   // 0x10
-        ram[5]  = TARGET;          // 0x14 ← prefetch target
+        ram[5]  = TARGET;          // 0x14 prefetch target
     end
 
     reg [1:0] mst;   // memory slave state
@@ -162,13 +162,13 @@ module tb_prefetch_system;
         end
     end
 
-    // ── test counters ─────────────────────────────────────────────────────
+    // test counters
     integer pass_cnt, fail_cnt;
     `define CHK(cond, msg) \
         if (cond) begin $display("  PASS: %s", msg); pass_cnt=pass_cnt+1; end \
         else begin $display("  FAIL: %s (t=%0t)", msg, $time); fail_cnt=fail_cnt+1; end
 
-    // ── cpu_read task ─────────────────────────────────────────────────────
+    // cpu_read task
     task cpu_read;
         input  [AW-1:0] addr;
         output [DW-1:0] data;
@@ -198,7 +198,7 @@ module tb_prefetch_system;
         begin for (k=0;k<n;k=k+1) @(posedge clk); #1; end
     endtask
 
-    // ── main test ─────────────────────────────────────────────────────────
+    // main test
     reg [DW-1:0] d; reg [1:0] r; integer wc;
 
     initial begin
@@ -208,13 +208,13 @@ module tb_prefetch_system;
 
         $display("\n=== Branch-Based Prefetcher TB ===");
 
-        // phase 0 — reset
+        // phase 0 reset
         $display("\n[Phase 0] Reset");
         repeat(5) @(posedge clk);
         @(negedge clk); rst_n = 1;
         wait_cyc(3);
 
-        // phase 1 — NOP fetch, predecoder should stay quiet
+        // phase 1 nop fetch, predecoder should stay quiet
         $display("\n[Phase 1] NOP at 0x00");
         cpu_read(32'h0, d, r);
         wait_cyc(3);
@@ -222,16 +222,16 @@ module tb_prefetch_system;
         `CHK(!pd_is_branch,       "predecoder silent on NOP")
         `CHK(fifo_empty,          "FIFO still empty")
 
-        // phase 2 — fetch the branch, predecoder must fire
+        // phase 2 fetch branch, predecoder must fire
         $display("\n[Phase 2] Branch at 0x04");
-        @(negedge clk); pd_branch_seen = 0; pd_target_seen = 0;  // clear sticky
+        @(negedge clk); pd_branch_seen = 0; pd_target_seen = 0;  // clear sticky flags
         cpu_read(32'h4, d, r);
-        wait_cyc(3);   // predecoder registers 1 cycle after cpu_rvalid; give margin
+        wait_cyc(3);   // predecoder registers one cycle after cpu_rvalid; keep margin
         `CHK(d == BRANCH,              "got branch instruction")
         `CHK(pd_branch_seen,           "predecoder flagged branch (sticky)")
         `CHK(pd_target_seen == 32'h14, "target computed = 0x14 (sticky)")
 
-        // phase 3 — CPU idles, prefetcher should fill FIFO
+        // phase 3 cpu idles, prefetcher should fill fifo
         $display("\n[Phase 3] Waiting for prefetch fill...");
         wc = 0; @(posedge clk); #1;
         while (fifo_empty && wc < 30) begin @(posedge clk); #1; wc=wc+1; end
@@ -240,7 +240,7 @@ module tb_prefetch_system;
         `CHK(fifo_rdata[FW-1:DW] == 32'h14,          "FIFO head PC = 0x14")
         `CHK(fifo_rdata[DW-1:0]  == TARGET,            "FIFO head instr = MOV R1,#1")
 
-        // phase 4 — CPU asks for 0x14 → must come from FIFO, not memory
+        // phase 4 cpu asks for 0x14, should come from fifo and not memory
         $display("\n[Phase 4] CPU fetch 0x14 (expect FIFO hit, no memory access)");
         @(negedge clk); mem_seen = 0;
         cpu_read(32'h14, d, r);
@@ -249,9 +249,9 @@ module tb_prefetch_system;
         `CHK(!mem_seen,        "mem_arvalid never went high — memory bypassed!")
         `CHK(fifo_empty,       "FIFO empty after pop")
 
-        // phase 5 — flush test
+        // phase 5 flush test
         $display("\n[Phase 5] Flush on misprediction");
-        cpu_read(32'h4, d, r);   // re-trigger prefetch
+        cpu_read(32'h4, d, r);   // retrigger prefetch
         wc=0; @(posedge clk); #1;
         while (fifo_empty && wc < 30) begin @(posedge clk); #1; wc=wc+1; end
         `CHK(!fifo_empty, "FIFO re-filled before flush")
@@ -261,7 +261,7 @@ module tb_prefetch_system;
         wait_cyc(1);
         `CHK(fifo_empty, "FIFO empty 1 cycle after flush")
 
-        // phase 6 — miss path check
+        // phase 6 miss path check
         $display("\n[Phase 6] Miss at 0x08 (not in FIFO)");
         @(negedge clk); mem_seen = 0;
         cpu_read(32'h8, d, r);
