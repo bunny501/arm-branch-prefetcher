@@ -66,14 +66,14 @@ module cpu_memory_arbiter #(parameter AW=32, DW=32, FW=64)(
                     end
                 end
                 
-                // --- HIT PATH ---
+                //  HIT PATH 
                 1: begin c_arready <= 1; f_pop <= 1; state <= 2; end
                 2: begin 
                     c_rvalid <= 1; c_rdata <= dat_q; c_rresp <= 0;
                     if(c_rready) state <= 0;
                 end
                 
-                // --- MISS PATH ---
+                //  MISS PATH 
                 3: begin
                     c_arready <= 1; m_araddr <= c_addr_q; m_arvalid <= 1;
                     if(m_arready) state <= 4;
@@ -90,7 +90,7 @@ module cpu_memory_arbiter #(parameter AW=32, DW=32, FW=64)(
                     if(c_rready) state <= 0;
                 end
                 
-                // --- PREFETCH PATH ---
+                // PREFETCH PATH 
                 6: begin
                     p_arready <= 1; m_araddr <= p_addr_q; m_arvalid <= 1;
                     if(m_arready) state <= 7;
