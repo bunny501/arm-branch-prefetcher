@@ -27,7 +27,7 @@ module prefetch_axi_master #(parameter AW=32, DW=32, FW=64)(
             arvalid <= 0; rready <= 0; 
             fifo_push <= 0; fetched_inst <= 0;
         end else begin
-            fifo_push <= 0; // default
+            fifo_push <= 0; // DEFAULT
             case(state)
                 0: begin // IDLE
                     arvalid <= 0; rready <= 0;
@@ -43,7 +43,7 @@ module prefetch_axi_master #(parameter AW=32, DW=32, FW=64)(
                         state <= 2; 
                     end
                 end
-                2: begin // WAIT DATA & COMPLETE
+                2: begin // WAIT DATA and COMPLETE
                     arvalid <= 0; rready <= 1;
                     if(rvalid) begin
                         rready <= 0;
